@@ -3,6 +3,10 @@ from .loading import load
 from .compiling import recompile_js
 from .training import train
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 def run(
     checkpoint_path,
@@ -301,5 +305,8 @@ def run(
         kwargs = comm.bcast(kwargs, root=0)
     kwargs["output_dir"] = output_dir
     kwargs.update(generate_kwargs)
+
+
+    # print("\n\n\n\n******************* kwargs: ", kwargs)
 
     generate(**kwargs)

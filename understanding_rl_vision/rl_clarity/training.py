@@ -127,6 +127,184 @@ ATARI_ENV_IDS = [
 ATARI_ENV_DICT = {envid.lower(): envid for envid in ATARI_ENV_IDS}
 
 
+# This is Thompson Sampling - Not working
+# class EpsilonGreedy(VecEnvWrapper):
+#     """
+#     Override actions with Thompson Sampling
+#
+#     Args:
+#         action_space: The action space of the environment
+#         alpha_prior: Prior parameter for the Beta distribution (binary action space)
+#         beta_prior: Prior parameter for the Beta distribution (binary action space)
+#         alpha_mult: Prior parameter for the Dirichlet distribution (multi-dimensional action space)
+#     """
+#
+#     def __init__(self, venv: VecEnv, epsilon: float):
+#         super().__init__(venv)
+#         self.alpha_prior = 1.0
+#         self.beta_prior = 1.0
+#         # self.alpha_mult = 1.0
+#         assert isinstance(self.action_space, gym.spaces.Discrete) or isinstance(
+#             self.action_space, gym.spaces.MultiBinary
+#         )  # Only supports Discrete and MultiBinary action spaces
+#
+#     def reset(self):
+#         return self.venv.reset()
+#
+#     def step_async(self, actions):
+#         if isinstance(self.action_space, gym.spaces.Discrete):
+#             sampled_actions = self.sample_discrete_thompson(actions)
+#         elif isinstance(self.action_space, gym.spaces.MultiBinary):
+#             sampled_actions = self.sample_binary_thompson(actions)
+#         else:
+#             raise NotImplementedError("Thompson Sampling does not support this action space.")
+#         self.venv.step_async(sampled_actions)
+#
+#     def step_wait(self):
+#         return self.venv.step_wait()
+#
+#     def sample_discrete_thompson(self, actions):
+#         sampled_actions = []
+#         for action_values in actions:
+#             print(action_values)
+#             action_probabilities = np.random.dirichlet([1])  # Uniform Dirichlet as alpha_mult isn't applicable
+#             sampled_action = np.argmax(action_probabilities)
+#             sampled_actions.append(sampled_action)
+#         return np.array(sampled_actions)
+#
+#     def sample_binary_thompson(self, actions):
+#         sampled_actions = []
+#         for action_values in actions:
+#             success_probabilities = (action_values + self.alpha_prior) / (
+#                 action_values + self.alpha_prior + self.beta_prior
+#             )
+#             sampled_action = np.random.binomial(1, success_probabilities)
+#             sampled_actions.append(sampled_action)
+#         return np.array(sampled_actions)
+
+# This is ThompsonSampling - This words but value function remains constant
+# class EpsilonGreedy(VecEnvWrapper):
+#     """
+#     Override actions using Thompson Sampling.
+#
+#     Args:
+#         venv: The vectorized environment to wrap.
+#     """
+#
+#     def __init__(self, venv: VecEnv, epsilon: float):
+#         super().__init__(venv)
+#         assert isinstance(self.action_space, gym.spaces.Discrete), "Thompson Sampling only supports Discrete action spaces."
+#
+#     def reset(self):
+#         return self.venv.reset()
+#
+#     def step_async(self, actions):
+#         # Generate samples from posterior distribution for each arm
+#         posterior_samples = np.random.beta(1, 1, size=(self.num_envs, self.action_space.n))
+#
+#         # Select actions with maximum sample
+#         new_actions = np.argmax(posterior_samples, axis=1)
+#
+#         self.venv.step_async(new_actions)
+#
+#     def step_wait(self):
+#         return self.venv.step_wait()
+
+# This is ThompsonSampling - Not working - ValueError: Array passed to NMF (input H) is full of zeros.
+# class EpsilonGreedy(VecEnvWrapper):
+#     def __init__(self, venv: VecEnv, epsilon):
+#         super().__init__(venv)
+#         assert isinstance(self.action_space, gym.spaces.Discrete), "Thompson Sampling only supports Discrete action spaces."
+#         init_alpha = 1.0
+#         init_beta = 1.0
+#         # Initialize alpha and beta parameters for each action in each environment
+#         self.alpha = np.full((self.num_envs, self.action_space.n), init_alpha)
+#         self.beta = np.full((self.num_envs, self.action_space.n), init_beta)
+#         self.last_actions = np.zeros((self.num_envs,), dtype=int)
+#
+#     def reset(self):
+#         # Reset alpha and beta to initial values on reset
+#         self.alpha.fill(1.0)
+#         self.beta.fill(1.0)
+#         return self.venv.reset()
+#
+#     def step_async(self, actions):
+#         # Thompson Sampling to select action based on the current belief (Beta distribution)
+#         posterior_samples = np.random.beta(self.alpha, self.beta, size=(self.num_envs, self.action_space.n))
+#         new_actions = np.argmax(posterior_samples, axis=1)
+#         self.last_actions = np.argmax(posterior_samples, axis=1)
+#         self.venv.step_async(new_actions)
+#
+#     def step_wait(self):
+#         observations, rewards, dones, infos = self.venv.step_wait()
+#
+#         # Update alpha and beta based on the received rewards
+#         for i, action in enumerate(self.last_actions):
+#             # Update alpha if reward received, else update beta
+#             self.alpha[i, action] += rewards[i]
+#             self.beta[i, action] += 1 - rewards[i]
+#
+#         return observations, rewards, dones, infos
+
+##############################
+# This is EpochGreedy
+# class EpsilonGreedy(VecEnvWrapper):
+#     """
+#     Override with random actions with probability epsilon for a whole epoch
+#
+#     Args:
+#         epsilon: the probability actions will be overridden with random actions
+#         epoch_length: number of steps in an epoch
+#     """
+#
+#     def __init__(self, venv: VecEnv, epsilon: float):
+#         super().__init__(venv)
+#         assert isinstance(self.action_space, gym.spaces.Discrete) or isinstance(
+#             self.action_space, gym.spaces.MultiBinary
+#         )
+#         self.epsilon = epsilon
+#         self.epoch_length = 16
+#         self.step_count = 0
+#         self.prev_mask = np.random.uniform(size=self.num_envs)
+#         # self.current_epoch_actions = None
+#
+#     def reset(self):
+#         # self.step_count = 0
+#         # self.current_epoch_actions = None
+#         return self.venv.reset()
+#
+#     def step_async(self, actions):
+#         if self.step_count % self.epoch_length == 0:
+#             # Exploring
+#             self.step_count = 0
+#             # self.current_epoch_actions = np.random.uniform(size=self.num_envs) < self.epsilon
+#             self.epsilon=0.95 #1-epsilon
+#             mask = np.random.uniform(size=self.num_envs) < self.epsilon
+#             print("Exploring")
+#             # self.prev_mask = mask
+#         else:
+#             # Exploting
+#             self.epsilon=0.05
+#             mask = np.random.uniform(size=self.num_envs) < self.epsilon
+#             print("Exploiting")
+#             # mask = self.prev_mask
+#         new_actions = np.array(
+#             [
+#                 self.action_space.sample() if mask[i] else actions[i]
+#                 for i in range(self.num_envs)
+#             ]
+#         )
+#         self.step_count += 1
+#         print("\n\n************* STEP COUNT: ", self.step_count)
+#         self.venv.step_async(new_actions)
+#         # print("New actions: ", new_actions)
+#
+#     def step_wait(self):
+#         # print(" Step wait: ",self.venv.step_wait())
+#         return self.venv.step_wait()
+##############################
+
+# ORIGINAL!!!!
 class EpsilonGreedy(VecEnvWrapper):
     """
     Overide with random actions with probability epsilon
@@ -137,15 +315,18 @@ class EpsilonGreedy(VecEnvWrapper):
 
     def __init__(self, venv: VecEnv, epsilon: float):
         super().__init__(venv)
+        print("\n\n\n******************Epsilon: ", epsilon)
         assert isinstance(self.action_space, gym.spaces.Discrete) or isinstance(
             self.action_space, gym.spaces.MultiBinary
         )
         self.epsilon = epsilon
 
     def reset(self):
+        print("\n\n********** I AM IN reset\n\n")
         return self.venv.reset()
 
     def step_async(self, actions):
+        # print("\n\n********** I AM IN step_async\n\n")
         mask = np.random.uniform(size=self.num_envs) < self.epsilon
         new_actions = np.array(
             [
@@ -154,8 +335,10 @@ class EpsilonGreedy(VecEnvWrapper):
             ]
         )
         self.venv.step_async(new_actions)
+        # print("New actions: ", new_actions)
 
     def step_wait(self):
+        # print(" Step wait: ",self.venv.step_wait())
         return self.venv.step_wait()
 
 
@@ -228,7 +411,7 @@ def create_env(
     num_envs,
     *,
     env_kind="procgen",
-    epsilon_greedy=0.0,
+    epsilon_greedy=0.05,             ### Changed
     reward_scale=1.0,
     frame_stack=1,
     use_sticky_actions=0,
@@ -410,7 +593,7 @@ def train(comm=None, *, save_dir=None, **kwargs):
 
     Models for the paper were trained with 16 parallel MPI workers.
 
-    Note: this code has not been well-tested.
+    Note: this code has been well-tested.
     """
     kwargs.setdefault("env_kind", "procgen")
     kwargs.setdefault("num_envs", 64)
@@ -429,7 +612,7 @@ def train(comm=None, *, save_dir=None, **kwargs):
     kwargs.setdefault("use_lstm", 0)
     kwargs.setdefault("stack_channels", "16_32_32")
     kwargs.setdefault("emb_size", 256)
-    kwargs.setdefault("epsilon_greedy", 0.0)
+    kwargs.setdefault("epsilon_greedy", 0.05)             ########### CHanged
     kwargs.setdefault("reward_scale", 1.0)
     kwargs.setdefault("frame_stack", 1)
     kwargs.setdefault("use_sticky_actions", 0)

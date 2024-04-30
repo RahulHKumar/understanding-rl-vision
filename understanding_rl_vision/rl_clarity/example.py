@@ -28,7 +28,7 @@ def train_and_run(env_name_or_id, *, base_path=None):
     # note: training code has not been well-tested
     rl_clarity.train(
         num_envs=8,
-        num_steps=16,
+        num_steps=16,             ######## Steps changed
         timesteps_per_proc=8 * 16 * 2,
         save_interval=2,
         save_dir=training_dir,
@@ -39,10 +39,12 @@ def train_and_run(env_name_or_id, *, base_path=None):
 
     print("Generating interface...")
     # generate a small interface, to demonstrate
+    print(checkpoint_path)
+    print(interface_dir)
     rl_clarity.run(
         checkpoint_path,
         output_dir=interface_dir,
-        trajectories_kwargs={"num_envs": 8, "num_steps": 16},
+        trajectories_kwargs={"num_envs": 8, "num_steps": 16},   ######## Steps changed
         observations_kwargs={"num_envs": 8, "num_obs": 4, "obs_every": 4},
         layer_kwargs={"name_contains_one_of": ["2b"]},
     )

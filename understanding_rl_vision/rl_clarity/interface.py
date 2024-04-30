@@ -165,6 +165,8 @@ def compute_gae(trajectories, *, gae_gamma, gae_lambda):
             deltas[:, step]
             + (1 - dones[:, step]) * gae_gamma * gae_lambda * result[:, step + 1]
         )
+    # result =12345
+    # print(" REsult", result)
     return result
 
 
@@ -404,6 +406,8 @@ def generate(
     trajectories["policy_logits"] = []
     trajectories["values"] = []
     for trajectory_observations in trajectories["observations"]:
+        print(trajectory_observations.shape)
+        print("\n\n\n*********************** Observations: ", trajectory_observations)
         trajectories["policy_logits"].append(
             batched_get(
                 trajectory_observations,
@@ -440,6 +444,20 @@ def generate(
     nmf_kwargs = {"attr_layer_name": value_function_name}
     if nmf_attr_opts is not None:
         nmf_kwargs["attr_opts"] = nmf_attr_opts
+    # print("\n\n******* observations ", observations)
+    # print("\n\n******* observations_full ", observations_full)
+    # print("\n\n******* nmf_features ", nmf_features)
+    # print("\n\n******* nmf_kwargs ", nmf_kwargs)
+    # print("\n\n******* model ", model)
+    # print("\n\n******* layer_names ", layer_names)
+    # f = open("observations.txt", "a")
+    # f.write(str(observations))
+    # f.close()
+
+    # f = open("observations_full.txt", "a")
+    # f.write(str(observations_full))
+    # f.close()
+
     nmfs = {
         layer_key: LayerNMF(
             model,
